@@ -1,0 +1,218 @@
+/* @import url để liên kết font chữ Outfit từ Google Fonts đem lại sự hiện đại, sang trọng */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Hệ biến màu sắc được tinh chỉnh hài hòa, chuyên nghiệp (tránh dùng màu cơ bản chói mắt) */
+  --bg-gradient-start: #0f0c1b;
+  --bg-gradient-end: #05020a;
+  --glass-bg: rgba(18, 12, 34, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-focus: rgba(139, 92, 246, 0.4);
+  --text-main: #f3f1f6;
+  --text-muted: #9f9baa;
+  
+  /* Cặp màu gradient chủ đạo của nút bấm và thanh tiến trình */
+  --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
+  --accent-glow: rgba(124, 58, 237, 0.4);
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+}
+
+/* Áp dụng font Outfit và thiết lập màu nền cho toàn bộ trang web */
+body {
+  font-family: 'Outfit', sans-serif;
+  background: radial-gradient(circle at 10% 20%, rgba(98, 45, 235, 0.15) 0%, transparent 40%),
+              radial-gradient(circle at 90% 80%, rgba(219, 39, 119, 0.12) 0%, transparent 40%),
+              var(--bg-gradient-end);
+  color: var(--text-main);
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* Định dạng container Glassmorphism - tạo chiều sâu bằng backdrop blur và viền sáng mảnh */
+.glass-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Hiệu ứng phát sáng nhẹ khi di chuột vào tấm panel */
+.glass-panel:hover {
+  border-color: rgba(124, 58, 237, 0.25);
+  box-shadow: 0 25px 60px rgba(124, 58, 237, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Định dạng tiêu đề chính có dải màu gradient sinh động */
+.gradient-text {
+  background: linear-gradient(135deg, #a78bfa 0%, #f472b6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Thiết kế nút bấm Glassmorphic với hiệu ứng hover nâng nhẹ và bóng sáng */
+.btn-primary {
+  background: var(--accent-gradient);
+  box-shadow: 0 8px 24px var(--accent-glow);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(124, 58, 237, 0.6);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Thiết kế nút phụ viền mảnh */
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Tùy chỉnh thanh cuộn bóng bẩy phù hợp giao diện tối */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Các lớp trạng thái hiển thị bằng vòng tròn nhấp nháy (pulsing status dot) */
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+}
+
+.status-dot::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.dot-active {
+  background-color: var(--success-color);
+}
+.dot-active::after {
+  background-color: var(--success-color);
+}
+
+.dot-warning {
+  background-color: var(--warning-color);
+}
+.dot-warning::after {
+  background-color: var(--warning-color);
+}
+
+.dot-inactive {
+  background-color: var(--danger-color);
+}
+.dot-inactive::after {
+  background-color: var(--danger-color);
+}
+
+/* Hiệu ứng nhấp nháy cho vòng tròn trạng thái */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Hiệu ứng sóng nhạc sinh động khi đang phát audio */
+.wave-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 24px;
+}
+
+.wave-bar {
+  width: 3px;
+  height: 4px;
+  background-color: #db2777;
+  border-radius: 3px;
+  animation: wave-motion 1.2s ease-in-out infinite alternate;
+}
+
+.wave-bar:nth-child(2) { animation-delay: 0.15s; background-color: #a78bfa; }
+.wave-bar:nth-child(3) { animation-delay: 0.3s; background-color: #7c3aed; }
+.wave-bar:nth-child(4) { animation-delay: 0.45s; background-color: #db2777; }
+.wave-bar:nth-child(5) { animation-delay: 0.6s; background-color: #f472b6; }
+
+@keyframes wave-motion {
+  0% { height: 4px; }
+  100% { height: 24px; }
+}
+
+/* Tùy biến thanh Range Slider bóng bẩy của các tham số */
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  height: 6px;
+  border-radius: 99px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a78bfa;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.8);
+  transition: transform 0.1s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}

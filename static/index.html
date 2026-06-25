@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniVoice TTS Dashboard</title>
+  <!-- Nhúng Tailwind CSS qua CDN để sử dụng các class utility bố cục nhanh chóng và mượt mà -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Liên kết file CSS tự viết chứa các biến màu, hiệu ứng glassmorphism và hoạt họa -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+  <!-- Thẻ bọc ngoài dạng Glassmorphism cao cấp -->
+  <div class="glass-panel w-full max-w-2xl p-8 md:p-10">
+    
+    <!-- Tiêu đề Dashboard -->
+    <header class="text-center mb-8">
+      <h1 class="text-4xl font-bold tracking-tight mb-2 gradient-text">OmniVoice TTS Service</h1>
+      <p class="text-gray-400 text-sm md:text-base">Hệ thống tổng hợp giọng nói tiếng Việt chất lượng cao tích hợp Clone giọng nói</p>
+    </header>
+
+    <!-- Khu vực hiển thị Trạng thái Hệ thống -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      
+      <!-- Trạng thái 1: File Model Weights trên ổ đĩa -->
+      <div class="bg-black/20 border border-white/5 rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <h3 class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">File Model trên đĩa</h3>
+          <p id="model-exists-text" class="text-lg font-medium text-amber-500">Đang kiểm tra...</p>
+        </div>
+        <div class="flex items-center gap-2 mt-4">
+          <span id="model-exists-dot" class="status-dot dot-warning"></span>
+          <span id="model-exists-desc" class="text-xs text-gray-500">Trọng số (~3.27 GB)</span>
+        </div>
+      </div>
+
+      <!-- Trạng thái 2: Trạng thái nạp Model lên RAM/VRAM -->
+      <div class="bg-black/20 border border-white/5 rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <h3 class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Trạng thái bộ nhớ (VRAM)</h3>
+          <p id="model-loaded-text" class="text-lg font-medium text-amber-500">Đang kiểm tra...</p>
+        </div>
+        <div class="flex items-center gap-2 mt-4">
+          <span id="model-loaded-dot" class="status-dot dot-warning"></span>
+          <span id="model-loaded-desc" class="text-xs text-gray-500">CPU / CUDA GPU</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Khu vực Bảng điều khiển Tải và Nạp Model -->
+    <section class="space-y-6">
+      
+      <!-- Hộp điều khiển Tải Model (Chỉ hiển thị khi model chưa đầy đủ trên ổ đĩa) -->
+      <div id="download-box" class="hidden bg-purple-950/20 border border-purple-500/20 rounded-2xl p-6">
+        <h3 class="text-lg font-semibold mb-2">Tải Model xuống hệ thống</h3>
+        <p class="text-sm text-gray-400 mb-4">Các file model của OmniVoice chưa đầy đủ trên máy này. Hãy bấm bắt đầu tải xuống trực tiếp từ Hugging Face.</p>
+        <button id="btn-download" class="w-full btn-primary text-white py-3 px-6 rounded-xl font-medium">
+          Tải Model (3.27 GB)
+        </button>
+      </div>
+
+      <!-- Bảng tiến độ tải thời gian thực SSE (Chỉ hiện khi đang tải hoặc lỗi) -->
+      <div id="progress-box" class="hidden bg-black/30 border border-white/5 rounded-2xl p-6 space-y-4">
+        <div class="flex justify-between items-center text-sm">
+          <span id="download-file-name" class="font-medium text-purple-400 truncate max-w-[70%]">Đang kết nối...</span>
+          <span id="download-percent" class="font-bold text-white">0%</span>
+        </div>
+        
+        <!-- Thanh tiến độ Glossy gradient -->
+        <div class="w-full bg-white/5 rounded-full h-3 overflow-hidden border border-white/5">
+          <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <!-- Chi tiết thông số tải đẩy về từ SSE -->
+        <div class="flex justify-between text-xs text-gray-400 pt-1">
+          <div class="flex items-center gap-1">
+            <span>Tốc độ:</span>
+            <span id="download-speed" class="text-white font-medium">0.0 MB/s</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span>Dự kiến:</span>
+            <span id="download-eta" class="text-white font-medium">--:--</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span>Đã tải:</span>
+            <span id="download-bytes" class="text-white font-medium">0 / 3.27 GB</span>
+          </div>
+        </div>
+
+        <!-- Ghi nhận thông báo lỗi nếu tải bị ngắt quãng -->
+        <div id="download-error-box" class="hidden text-xs text-red-400 bg-red-950/20 border border-red-500/20 p-3 rounded-lg mt-2">
+          Lỗi: <span id="download-error-msg"></span>
+        </div>
+      </div>
+
+      <!-- Hộp điều khiển Nạp / Giải phóng Model khỏi bộ nhớ VRAM -->
+      <div id="load-box" class="hidden bg-black/20 border border-white/5 rounded-2xl p-6 space-y-4">
+        <h3 class="text-lg font-semibold">Quản lý Model bộ nhớ</h3>
+        <p class="text-sm text-gray-400">Nạp model weights lên VRAM của GPU hoặc RAM của máy tính để chuẩn bị chạy sinh giọng nói.</p>
+        
+        <div class="flex flex-col sm:flex-row gap-3">
+          <!-- Nút Nạp Model -->
+          <button id="btn-load-model" class="flex-1 btn-primary text-white py-3 px-6 rounded-xl font-medium">
+            Nạp Model vào RAM/VRAM
+          </button>
+          <!-- Nút Giải phóng Model giải phóng bộ nhớ -->
+          <button id="btn-unload-model" class="btn-secondary text-gray-300 py-3 px-6 rounded-xl font-medium hidden">
+            Giải phóng VRAM
+          </button>
+        </div>
+
+        <div id="load-loading-spinner" class="hidden flex items-center justify-center gap-3 text-purple-400 py-2">
+          <!-- Biểu tượng loading xoay tròn -->
+          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-sm font-medium">Đang nạp và warmup model lên GPU, vui lòng chờ khoảng 15-30 giây...</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Nút định hướng chuyển trang TTS Generator -->
+    <footer class="mt-10 pt-6 border-t border-white/5 flex justify-end">
+      <button id="btn-goto-tts" class="btn-primary text-white py-3.5 px-8 rounded-xl font-semibold flex items-center gap-2" disabled>
+        <span>Chuyển sang trang sinh giọng nói</span>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+      </button>
+    </footer>
+
+  </div>
+
+  <!-- Liên kết file logic Javascript điều khiển Dashboard -->
+  <script src="js/main.js"></script>
+</body>
+</html>

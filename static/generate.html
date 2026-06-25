@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniVoice TTS Generation</title>
+  <!-- Sử dụng Tailwind CSS qua CDN để làm việc nhanh chóng với các class utility -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Liên kết stylesheet tự chọn chứa hiệu ứng glassmorphism và hoạt họa -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+  <!-- Thẻ bọc ngoài dạng Glassmorphism cao cấp -->
+  <div class="glass-panel w-full max-w-3xl p-8 md:p-10">
+    
+    <!-- Header chuyển tiếp -->
+    <header class="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+      <div>
+        <h1 class="text-3xl font-bold gradient-text">TTS Generator</h1>
+        <p class="text-xs text-gray-400 mt-1">Tổng hợp văn bản tiếng Việt sang giọng nói</p>
+      </div>
+      <!-- Nút Quay lại Dashboard -->
+      <a href="index.html" class="btn-secondary text-gray-300 text-sm py-2.5 px-5 rounded-xl font-medium flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        <span>Bảng điều khiển</span>
+      </a>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- Cột trái: Form nhập liệu và cấu hình tham số (8/12 cột) -->
+      <form id="tts-form" class="lg:col-span-7 space-y-6" onsubmit="return false;">
+        
+        <!-- Nhập văn bản cần sinh giọng -->
+        <div>
+          <label for="tts-text" class="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Văn bản cần đọc (Tối đa 500 ký tự)</label>
+          <textarea id="tts-text" class="w-full h-36 bg-black/30 border border-white/5 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors resize-none text-sm leading-relaxed" placeholder="Nhập nội dung văn bản tiếng Việt tại đây..." required></textarea>
+          <div class="flex justify-end text-xs text-gray-500 mt-1">
+            <span id="char-count">0</span>/500 ký tự
+          </div>
+        </div>
+
+        <!-- API Key bảo mật -->
+        <div>
+          <label for="api-key-input" class="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">API Key (Nếu hệ thống yêu cầu)</label>
+          <input type="password" id="api-key-input" class="w-full bg-black/30 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm" placeholder="Nhập API Key (X-TTS-API-Key)...">
+        </div>
+
+        <!-- Lựa chọn file giọng mẫu clone -->
+        <div>
+          <label for="voice-select" class="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Chọn giọng nói mẫu (.wav)</label>
+          <select id="voice-select" class="w-full bg-black/30 border border-white/5 rounded-xl p-3.5 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm">
+            <!-- Sẽ được điền động bằng file JS qua API GET /api/voices -->
+            <option value="">Đang nạp danh sách giọng nói...</option>
+          </select>
+          <p class="text-xs text-gray-500 mt-1.5">Mẹo: Bạn có thể thêm file .wav mẫu giọng bất kỳ vào thư mục <code>voices/</code> để tự động nhận thêm giọng đọc mới.</p>
+        </div>
+
+        <!-- Cấu hình các tham số chi tiết -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          
+          <!-- Tham số 1: Tốc độ đọc (Speed) -->
+          <div class="bg-black/20 border border-white/5 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between text-xs font-medium text-gray-400">
+              <span>Tốc độ đọc</span>
+              <span id="speed-val" class="text-purple-400 font-semibold">1.0x</span>
+            </div>
+            <input type="range" id="tts-speed" min="0.5" max="2.0" step="0.1" value="1.0">
+          </div>
+
+          <!-- Tham số 2: Số bước Diffusion (num_step) -->
+          <div class="bg-black/20 border border-white/5 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between text-xs font-medium text-gray-400">
+              <span>Số bước Diffusion</span>
+              <span id="steps-val" class="text-purple-400 font-semibold">32</span>
+            </div>
+            <input type="range" id="tts-steps" min="8" max="64" step="1" value="32">
+          </div>
+
+        </div>
+
+        <!-- Nút Tạo Giọng Nói -->
+        <button type="button" id="btn-generate" class="w-full btn-primary text-white py-3.5 px-6 rounded-xl font-bold flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+          </svg>
+          <span>Tạo Giọng Nói</span>
+        </button>
+
+      </form>
+
+      <!-- Cột phải: Hộp kết quả phát âm thanh (4/12 cột) -->
+      <section class="lg:col-span-5 flex flex-col justify-between">
+        
+        <div class="bg-black/30 border border-white/5 rounded-2xl p-6 h-full flex flex-col items-center justify-center text-center space-y-6 min-h-[300px]">
+          
+          <!-- Trạng thái chờ tạo audio -->
+          <div id="result-placeholder" class="space-y-4">
+            <div class="w-16 h-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto text-gray-500">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+              </svg>
+            </div>
+            <p class="text-sm text-gray-500 max-w-[200px] mx-auto">Vui lòng nhập văn bản và nhấn nút "Tạo Giọng Nói" để nghe thử kết quả.</p>
+          </div>
+
+          <!-- Spinner khi đang tổng hợp giọng (Inference) -->
+          <div id="result-loading" class="hidden space-y-4">
+            <div class="relative w-16 h-16 mx-auto">
+              <!-- Hiệu ứng vòng xoay kép -->
+              <div class="absolute inset-0 rounded-full border-4 border-purple-500/20"></div>
+              <div class="absolute inset-0 rounded-full border-4 border-t-purple-500 border-r-pink-500 animate-spin"></div>
+            </div>
+            <p class="text-sm text-purple-400 font-medium animate-pulse">Model đang thực hiện sinh giọng nói bất đồng bộ...</p>
+            <p class="text-[10px] text-gray-500 italic">Mẹo: Lần chạy đầu tiên sẽ tạo VoiceClonePrompt nên sẽ chậm hơn một chút.</p>
+          </div>
+
+          <!-- Giao diện Trình phát nhạc chất lượng cao khi tạo xong -->
+          <div id="result-success" class="hidden w-full space-y-6">
+            
+            <!-- EQ Equalizer động nhấp nháy theo nhạc (Chỉ nhảy khi Audio phát) -->
+            <div class="flex flex-col items-center justify-center space-y-3">
+              <div id="audio-wave" class="wave-container opacity-40">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+              <span id="synthesis-duration" class="text-xs text-purple-400 font-medium">Thời gian xử lý: 0.0s</span>
+            </div>
+
+            <!-- Trình phát Audio HTML5 -->
+            <audio id="audio-player" controls class="w-full"></audio>
+
+            <!-- Khối nút bấm Lưu trữ -->
+            <div class="flex flex-col gap-2 w-full pt-4">
+              <a id="btn-download-audio" href="#" download="synthesized_speech.wav" class="w-full btn-secondary text-sm text-gray-300 py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                <span>Tải tệp WAV về máy</span>
+              </a>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </div>
+
+  <!-- Liên kết file JS thực thi tạo giọng -->
+  <script src="js/generate.js"></script>
+</body>
+</html>
