@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omnivoice-tts-app
+    restart: unless-stopped
+    ports:
+      - "8100:8100"
+    volumes:
+      # Mount thư mục models và voices để lưu trữ weights và âm thanh mẫu trên máy Host
+      - ./models:/app/models
+      - ./voices:/app/voices
+      # Mount file .env nếu có để tùy biến cấu hình mà không cần build lại image
+      - ./.env:/app/.env
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    # NẾU BẠN MUỐN CHẠY BẰNG GPU CUDA TRONG DOCKER, hãy bỏ dấu comment (#) cho phần cấu hình gpus dưới đây
+    # (Yêu cầu phải cài đặt NVIDIA Container Toolkit trên máy Host trước)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  zrok-tunnel:
+    image: openziti/zrok
+    container_name: omnivoice-zrok-tunnel
+    restart: unless-stopped
+    depends_on:
+      - app
+    # Lấy UID của user hiện tại để phân quyền đọc ghi config zrok.
+    user: "${UID:-1000}"
+    volumes:
+      # Mount thư mục cấu hình zrok từ máy Host (~/.zrok) vào container
+      - ~/.zrok:/home/ziggy/.zrok
+    # Lệnh zrok public share tới service app trên port 8100 của mạng nội bộ Docker.
+    # --headless giúp tunnel tự khởi động chạy nền mà không đòi hỏi giao diện tương tác.
+    command: share public http://app:8100 --headless

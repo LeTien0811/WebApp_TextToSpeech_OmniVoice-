@@ -1,57 +1,58 @@
-# Restructuring OmniVoice TTS Service - Walkthrough
+# Hướng dẫn chạy Web App bằng Docker & Chia sẻ qua zrok
 
-The monolithic backend has been successfully restructured into a production-ready, modular Full-stack Python application with a premium glassmorphic web UI.
+Hệ thống đã được bổ sung thành công cấu hình Docker hóa và kênh đường hầm bảo mật `zrok` để chia sẻ dịch vụ web ra internet.
 
-## Architectural Improvements
-
-```mermaid
-graph TD
-    A[main.py Entrypoint] --> B[api/routes.py Router]
-    B --> C[engines/downloader.py]
-    B --> D[engines/omnivoice_lr.py]
-    B --> E[core/config.py]
-    E --> F[models/ Directory]
-    E --> G[voices/ Directory]
-    B --> H[static/ Frontend Assets]
-```
-
-### 1. Configuration & Absolute Pathing (`core/config.py`)
-- Automatically resolves paths dynamically between standard Python runtime and compiled PyInstaller `.exe` (frozen mode).
-- Parses `.env` variables cleanly and creates `models/` and `voices/` directories at startup.
-
-### 2. Resumable Async Downloader (`engines/downloader.py`)
-- Employs `httpx.AsyncClient` for asynchronous chunked downloads.
-- Checks local file sizes and sends `Range: bytes={existing_size}-` HTTP headers to resume partial downloads without starting from scratch.
-- Tracks real-time percentage, speed (MB/s), and ETA (Estimated Time of Arrival) parameters.
-
-### 3. VRAM Optimization & Model Lifecycle (`engines/omnivoice_lr.py`)
-- Thread-safe asynchronous model loading and GPU inference lock to serialize GPU access.
-- Implements model unloading (`unload_model`) which calls garbage collection and `torch.cuda.empty_cache()` to prevent CUDA Out-of-Memory (OOM) leaks.
-- Pre-computes and caches `VoiceClonePrompt` vectors for selected voices to speed up inference.
-
-### 4. Server-Sent Events Endpoint (`api/routes.py`)
-- Replaced polling with Server-Sent Events (SSE) via FastAPI's `StreamingResponse` at `/api/download/stream`.
-- Real-time download progress is pushed directly as JSON objects to the frontend.
-
-### 5. Premium UI Dashboard (`static/`)
-- A beautiful dark glassmorphic design featuring glossy gradient progress bars, real-time status check dots, and a dynamic EQ waving visualizer.
-- Persistence of the API Key via `LocalStorage`.
+## Các tệp tin được tạo mới:
+1. [Dockerfile](file:///e:/Document/TextToSpeech_Project/OmniVoice_TTS_Service_api/Dockerfile): Đóng gói ứng dụng Python FastAPI với các thư viện âm thanh cần thiết (`libsndfile1`, `ffmpeg`) và cài đặt sẵn PyTorch.
+2. [docker-compose.yml](file:///e:/Document/TextToSpeech_Project/OmniVoice_TTS_Service_api/docker-compose.yml): Định nghĩa hai dịch vụ chạy song song:
+   - `app`: Service chạy web TTS OmniVoice (mở cổng `8100`, mount thư mục `models/`, `voices/`, và `.env` để lưu dữ liệu trên máy Host).
+   - `zrok-tunnel`: Sử dụng ảnh Docker chính thức của `zrok` để tạo một tunnel kết nối trực tiếp đến container `app`.
 
 ---
 
-## Verification Results
+## Hướng dẫn chạy chi tiết (Từng bước):
 
-1. **Uvicorn Start Check:**
-   Successfully launched the application in the background:
+### Bước 1: Đăng ký & Kích hoạt zrok trên máy Host
+Nếu bạn chưa cài và kích hoạt `zrok`, hãy làm theo các bước sau trên máy tính của bạn (máy Host):
+1. Truy cập [zrok.io](https://zrok.io/) để đăng ký một tài khoản miễn phí.
+2. Tải công cụ `zrok` về máy tính của bạn và giải nén (hoặc cài đặt qua công cụ quản lý gói).
+3. Lấy mã token kích hoạt trong trang quản trị zrok console của bạn.
+4. Mở PowerShell/Terminal trên máy Host và chạy lệnh để liên kết máy tính của bạn với hệ thống zrok:
+   ```bash
+   zrok enable <mã-token-của-bạn>
    ```
-   INFO:     Started server process [3208]
-   INFO:     Waiting for application startup.
-   2026-06-25 19:22:29,619 [INFO] OmniVoice_TTS: OmniVoice TTS Web App started successfully on port 8100!
-   2026-06-25 19:22:29,619 [INFO] OmniVoice_TTS: Management UI: http://localhost:8100
-   INFO:     Application startup complete.
-   INFO:     Uvicorn running on http://127.0.0.1:8100 (Press CTRL+C to quit)
+   *(Lệnh này sẽ tạo thư mục cấu hình ẩn `.zrok` trong thư mục User của bạn, giúp container Docker có thể đọc và xác thực tự động).*
+
+### Bước 2: Build & Khởi động Docker Containers
+1. Mở Docker Desktop (hoặc Docker Engine) trên máy tính của bạn.
+2. Mở terminal tại thư mục gốc của dự án (`e:\Document\TextToSpeech_Project\OmniVoice_TTS_Service_api`).
+3. Thực hiện build Docker image cho ứng dụng:
+   ```bash
+   docker compose build
    ```
-2. **Logging Error Fixes:**
-   Modified all python standard log statements to English to prevent Windows console codec encoding failures (UnicodeEncodeError for CP1252) when printing Vietnamese characters.
-3. **Model Auto-Copy:**
-   On startup, default voice sample `voice_sample.wav` was copied successfully to the `voices/` folder.
+4. Khởi chạy các container dưới dạng chạy nền (detached mode):
+   ```bash
+   docker compose up -d
+   ```
+
+### Bước 3: Lấy đường dẫn Public chia sẻ ra bên ngoài
+Khi các container đã chạy thành công, container `zrok-tunnel` sẽ tự động tạo một đường dẫn public.
+1. Để xem đường dẫn này, bạn gõ lệnh xem log của container tunnel:
+   ```bash
+   docker logs omnivoice-zrok-tunnel
+   ```
+2. Trong dòng log hiển thị, bạn sẽ thấy thông tin dạng như:
+   ```text
+   access your share at: https://xxxxxxxx.share.zrok.io
+   ```
+3. Bạn có thể copy đường dẫn `https://xxxxxxxx.share.zrok.io` này và gửi cho máy khác hoặc điện thoại di động truy cập trực tiếp vào giao diện sinh giọng nói của bạn từ bất kỳ đâu trên Internet!
+
+---
+
+## Lưu ý về cấu hình GPU trong Docker
+Theo mặc định, tệp `Dockerfile` đang build PyTorch ở chế độ **CPU** để tương thích tối đa và dễ cài đặt trên mọi máy. 
+* Nếu bạn muốn sử dụng **GPU CUDA** để sinh giọng nhanh hơn bên trong Docker:
+  1. Đảm bảo máy Host đã được cài đặt **NVIDIA Container Toolkit** (xem tài liệu Docker để cài đặt).
+  2. Mở file [Dockerfile](file:///e:/Document/TextToSpeech_Project/OmniVoice_TTS_Service_api/Dockerfile), bỏ comment dòng cài CUDA PyTorch và comment dòng CPU PyTorch lại.
+  3. Mở file [docker-compose.yml](file:///e:/Document/TextToSpeech_Project/OmniVoice_TTS_Service_api/docker-compose.yml), bỏ comment phần `deploy.resources.reservations.devices` để Docker cho phép container truy cập card đồ họa của máy Host.
+  4. Chạy lại lệnh build và up.

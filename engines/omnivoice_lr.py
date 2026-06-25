@@ -213,11 +213,43 @@ def _synthesize_sync(text: str, voice_sample_name: str, num_step: int, speed: fl
         postprocess_output=True   # Loại bỏ im lặng thừa, fade và pad âm thanh tránh rè
     )
     
-    # Lưu tensor âm thanh thành định dạng file WAV nhị phân vào bộ nhớ RAM
-    buf = io.BytesIO()
-    torchaudio.save(buf, audio_tensors[0].cpu(), 24000, format="wav") # OmniVoice xuất ra tần số mẫu 24kHz
-    buf.seek(0)
+    # Ghi dữ liệu âm thanh thành định dạng WAV PCM 16-bit sử dụng module wave tích hợp của Python.
+    # Bằng cách này ta hoàn toàn độc lập với các backend phức tạp như torchaudio.save, torchcodec hay ffmpeg.
+    import numpy as np
+    import wave
     
+    # Chuyển đổi dữ liệu sang numpy array để xử lý
+    audio_data = audio_tensors[0]
+    if isinstance(audio_data, torch.Tensor):
+        audio_np = audio_data.cpu().numpy()
+    else:
+        audio_np = audio_data
+        
+    # Đảm bảo mảng là 2D (channels, samples)
+    if audio_np.ndim == 1:
+        audio_np = np.expand_dims(audio_np, axis=0)
+        
+    # Chuẩn hóa biên độ âm thanh về khoảng [-1.0, 1.0] để tránh rè (clipping)
+    audio_np = np.clip(audio_np, -1.0, 1.0)
+    # Chuyển sang định dạng số nguyên 16-bit (PCM 16-bit)
+    audio_int16 = (audio_np * 32767.0).astype(np.int16)
+    
+    buf = io.BytesIO()
+    with wave.open(buf, 'wb') as wav_file:
+        n_channels = audio_int16.shape[0]
+        wav_file.setnchannels(n_channels)
+        wav_file.setsampwidth(2) # 2 bytes = 16-bit
+        wav_file.setframerate(24000) # Tần số lấy mẫu của OmniVoice là 24kHz
+        
+        # Nếu chỉ có 1 kênh (Mono), ghi trực tiếp bytes
+        if n_channels == 1:
+            wav_file.writeframes(audio_int16.tobytes())
+        else:
+            # Nếu có nhiều kênh, xếp chồng xen kẽ các kênh (interleaved)
+            interleaved = audio_int16.T.flatten()
+            wav_file.writeframes(interleaved.tobytes())
+            
+    buf.seek(0)
     return buf.read()
 
 async def generate_tts_async(text: str, voice_sample_name: str, num_step: int, speed: float) -> bytes:

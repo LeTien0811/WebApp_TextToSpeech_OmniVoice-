@@ -40,11 +40,30 @@ def verify_api_key(api_key: Optional[str] = Security(_api_key_header)):
 # Tự động sao chép file voice mẫu mặc định vào thư mục voices/ nếu thư mục voices trống và file gốc tồn tại
 # Giúp người dùng trải nghiệm ngay mà không cần cấu hình phức tạp
 try:
-    src_voice = BASE_DIR / "voice_sample.wav"
+    import sys
     dst_voice = VOICES_DIR / "voice_sample.wav"
-    if src_voice.exists() and not dst_voice.exists():
-        shutil.copy(src_voice, dst_voice)
-        logger.info("Đã tự động chuẩn bị file voice_sample.wav mẫu vào thư mục voices/")
+    if not dst_voice.exists():
+        # Danh sách các đường dẫn nguồn tiềm năng để tìm file voice mặc định
+        potential_srcs = [
+            BASE_DIR / "voice_sample.wav",
+            BASE_DIR / "voices" / "voice_sample.wav"
+        ]
+        # Nếu chạy dạng PyInstaller frozen, thêm các đường dẫn trong thư mục tạm sys._MEIPASS
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            meipass_path = Path(sys._MEIPASS)
+            potential_srcs.append(meipass_path / "voice_sample.wav")
+            potential_srcs.append(meipass_path / "voices" / "voice_sample.wav")
+            
+        # Tìm file nguồn đầu tiên tồn tại
+        found_src = None
+        for src in potential_srcs:
+            if src.exists() and src.resolve() != dst_voice.resolve():
+                found_src = src
+                break
+                
+        if found_src:
+            shutil.copy(found_src, dst_voice)
+            logger.info(f"Đã tự động chuẩn bị file voice_sample.wav mẫu từ {found_src.name} vào thư mục voices/")
 except Exception as e:
     logger.error(f"Lỗi khi tự động chuẩn bị file voice mặc định: {e}")
 

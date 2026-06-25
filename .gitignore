@@ -3,6 +3,7 @@ enviroment/
 __pycache__/
 *.exe
 *.wav
+!voices/voice_sample.wav
 *.bat
 .env
 python-bin/
