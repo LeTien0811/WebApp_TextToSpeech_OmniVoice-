@@ -1,0 +1,8 @@
+# Bỏ qua môi trường và file nặng
+enviroment/
+__pycache__/
+*.exe
+*.wav
+*.bat
+.env
+python-bin/
