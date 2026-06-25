@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniVoice TTS Demo</title>
+  <style>
+    :root {
+      --bg: #f4efe7;
+      --panel: rgba(255, 252, 247, 0.9);
+      --text: #1f1a17;
+      --muted: #5e534d;
+      --accent: #c35b2c;
+      --accent-dark: #8f3f1b;
+      --ring: rgba(195, 91, 44, 0.18);
+      --border: rgba(31, 26, 23, 0.08);
+      --shadow: 0 30px 80px rgba(76, 49, 35, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(195, 91, 44, 0.22), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(94, 83, 77, 0.16), transparent 30%),
+        linear-gradient(135deg, #f7f2eb 0%, #efe4d7 45%, #e7d8c6 100%);
+      display: grid;
+      place-items: center;
+      padding: 32px 18px;
+    }
+
+    .card {
+      width: min(760px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+    }
+
+    .hero {
+      padding: 44px 32px 28px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0)),
+        linear-gradient(120deg, rgba(195, 91, 44, 0.08), rgba(143, 63, 27, 0.02));
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: var(--accent-dark);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(36px, 7vw, 68px);
+      line-height: 0.96;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 18px 0 0;
+      max-width: 56ch;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    .content {
+      padding: 0 32px 34px;
+    }
+
+    .player-box {
+      margin-top: 10px;
+      padding: 22px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(31, 26, 23, 0.07);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    audio {
+      width: 100%;
+      display: block;
+      border-radius: 999px;
+      outline: none;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .meta-item {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(31, 26, 23, 0.06);
+    }
+
+    .meta-label {
+      margin: 0 0 6px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .meta-value {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 18px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+    }
+
+    .button-primary {
+      background: var(--accent);
+      color: #fff8f3;
+      box-shadow: 0 12px 30px var(--ring);
+    }
+
+    .button-secondary {
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--text);
+      border: 1px solid rgba(31, 26, 23, 0.08);
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      transform: translateY(-1px);
+    }
+
+    .note {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 640px) {
+      .hero {
+        padding: 34px 22px 24px;
+      }
+
+      .content {
+        padding: 0 22px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <section class="hero">
+      <p class="eyebrow">Vietnamese TTS Demo</p>
+      <h1>OmniVoice Sample Output</h1>
+      <p class="subtitle">
+        Bản phát thử trực tiếp từ dự án OmniVoice TTS Service. Nhấn Play để nghe file kết quả mẫu được sinh từ pipeline voice cloning.
+      </p>
+    </section>
+
+    <section class="content">
+      <div class="player-box">
+        <audio controls preload="metadata">
+          <source src="./example_result.wav" type="audio/wav">
+          Trình duyệt hiện tại không hỗ trợ phát audio trực tiếp.
+        </audio>
+      </div>
+
+      <div class="meta">
+        <div class="meta-item">
+          <p class="meta-label">Audio file</p>
+          <p class="meta-value">example_result.wav</p>
+        </div>
+        <div class="meta-item">
+          <p class="meta-label">Project</p>
+          <p class="meta-value">OmniVoice TTS Service</p>
+        </div>
+        <div class="meta-item">
+          <p class="meta-label">Use case</p>
+          <p class="meta-value">Vietnamese voice cloning demo</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="button button-primary" href="./example_result.wav">Mở file âm thanh</a>
+        <a class="button button-secondary" href="https://github.com/Le-Ngoc-Tu/OmniVoice_TTS_Service_api">Xem repository</a>
+      </div>
+
+      <p class="note">
+        Nếu audio chưa phát được ngay sau khi deploy, chờ GitHub Pages build xong rồi tải lại trang.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
