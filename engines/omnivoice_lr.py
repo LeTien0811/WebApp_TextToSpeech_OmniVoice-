@@ -201,9 +201,13 @@ def _synthesize_sync(text: str, voice_sample_name: str, num_step: int, speed: fl
     # Lấy prompt clone giọng tương ứng
     prompt = _get_voice_clone_prompt(voice_sample_name)
     
+    # Đảm bảo văn bản đầu vào có khoảng trống đệm ở đầu/cuối để mô hình ổn định hơn khi khởi tạo phát âm,
+    # tránh hiện tượng nuốt chữ/mất từ đầu tiên (đặc biệt hữu ích khi tách đoạn/câu nhỏ).
+    processed_text = " " + text.strip() + " "
+    
     # Sinh tensor âm thanh từ văn bản đầu vào
     audio_tensors = _model.generate(
-        text=text,
+        text=processed_text,
         voice_clone_prompt=prompt,
         language="vi",            # Cố định ngôn ngữ tiếng Việt để tăng độ chính xác
         num_step=num_step,
@@ -233,6 +237,18 @@ def _synthesize_sync(text: str, voice_sample_name: str, num_step: int, speed: fl
     audio_np = np.clip(audio_np, -1.0, 1.0)
     # Chuyển sang định dạng số nguyên 16-bit (PCM 16-bit)
     audio_int16 = (audio_np * 32767.0).astype(np.int16)
+    
+    # Tự động chèn thêm khoảng im lặng ngắn (~100ms ở đầu, ~50ms ở cuối) để trình duyệt/máy phát
+    # không bị cắt cụt mất từ đầu tiên khi phát âm thanh (do độ trễ phần cứng âm thanh hoặc cơ chế fade-in).
+    # Với tần số lấy mẫu 24kHz, 100ms tương đương 2400 samples, 50ms tương đương 1200 samples.
+    silence_start_samples = 2400
+    silence_end_samples = 1200
+    n_channels = audio_int16.shape[0]
+    
+    silence_start = np.zeros((n_channels, silence_start_samples), dtype=np.int16)
+    silence_end = np.zeros((n_channels, silence_end_samples), dtype=np.int16)
+    
+    audio_int16 = np.concatenate((silence_start, audio_int16, silence_end), axis=1)
     
     buf = io.BytesIO()
     with wave.open(buf, 'wb') as wav_file:

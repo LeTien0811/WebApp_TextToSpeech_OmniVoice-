@@ -31,6 +31,9 @@ app.add_middleware(
 # Đăng ký router API chứa các endpoint /api/status, /api/download, /api/load, /api/generate
 app.include_router(api_router)
 
+# Mount static outputs and assets under /static prefix to avoid 404 Not Found errors
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR.resolve())), name="static_media")
+
 # Mount thư mục chứa các tệp giao diện tĩnh (HTML/CSS/JS) lên đường dẫn gốc '/'
 # Cấu hình html=True giúp tự động trả về file index.html khi người dùng truy cập địa chỉ gốc.
 logger.info(f"Mounting static files from: {STATIC_DIR.resolve()}")
