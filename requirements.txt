@@ -5,6 +5,7 @@ httpx>=0.27.0
 omnivoice
 vietnormalizer
 num2words
+lameenc>=1.7.0
 # PyTorch — cài riêng theo CUDA version (xem README)
 # torch==2.7.1+cu128
 # torchaudio==2.7.1+cu128

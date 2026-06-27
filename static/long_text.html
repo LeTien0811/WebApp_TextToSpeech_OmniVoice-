@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniVoice - Tổng hợp văn bản dài sang MP3</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts - Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+  <!-- Thẻ bọc ngoài dạng Glassmorphism cao cấp -->
+  <div class="glass-panel w-full max-w-4xl p-8 md:p-10">
+    
+    <!-- Header chuyển tiếp -->
+    <header class="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+      <div>
+        <h1 class="text-3xl font-bold gradient-text">Sách Nói Creator</h1>
+        <p class="text-xs text-gray-400 mt-1">Tổng hợp tài liệu dài, tiểu thuyết, truyện (.txt) sang tệp âm thanh MP3 duy nhất</p>
+      </div>
+      <!-- Nút Quay lại Dashboard -->
+      <a href="index.html" class="btn-secondary text-gray-300 text-sm py-2.5 px-5 rounded-xl font-medium flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        <span>Bảng điều khiển</span>
+      </a>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- Cột trái: Form nhập liệu và cấu hình tham số (7/12 cột) -->
+      <form id="long-tts-form" class="lg:col-span-7 space-y-6" onsubmit="return false;">
+        
+        <!-- Nhập văn bản hoặc Drag-and-Drop file -->
+        <div>
+          <label class="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Văn bản dài cần đọc (Tải file .txt hoặc dán trực tiếp)</label>
+          
+          <!-- Vùng kéo thả file -->
+          <div id="dropzone" class="border-2 border-dashed border-white/10 hover:border-purple-500/50 rounded-xl p-6 mb-3 text-center cursor-pointer bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-300">
+            <svg class="w-8 h-8 mx-auto text-purple-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <p class="text-xs text-gray-300 font-medium">Kéo thả tệp tin <code class="text-purple-400 font-bold">.txt</code> vào đây hoặc nhấn để chọn</p>
+            <p class="text-[10px] text-gray-500 mt-1">Định dạng khuyên dùng: UTF-8</p>
+            <input type="file" id="file-input" class="hidden" accept=".txt">
+          </div>
+
+          <!-- Textarea cho phép xem/sửa văn bản -->
+          <textarea id="tts-text" class="w-full h-40 bg-black/30 border border-white/5 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors resize-none text-xs leading-relaxed" placeholder="Hoặc dán nội dung văn bản tiếng Việt dài tại đây..."></textarea>
+          <div class="flex justify-between items-center text-[10px] text-gray-500 mt-1">
+            <span id="file-info" class="text-purple-400 truncate max-w-[70%]"></span>
+            <span><span id="char-count">0</span> ký tự</span>
+          </div>
+        </div>
+
+        <!-- Lựa chọn file giọng mẫu clone -->
+        <div>
+          <label for="voice-select" class="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Chọn giọng nói mẫu (.wav)</label>
+          <select id="voice-select" class="w-full bg-black/30 border border-white/5 rounded-xl p-3.5 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm">
+            <option value="">Đang nạp danh sách giọng nói...</option>
+          </select>
+        </div>
+
+        <!-- Cấu hình các tham số chi tiết -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          
+          <!-- Tham số 1: Tốc độ đọc (Speed) -->
+          <div class="bg-black/20 border border-white/5 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between text-[11px] font-medium text-gray-400">
+              <span>Tốc độ đọc</span>
+              <span id="speed-val" class="text-purple-400 font-semibold">1.0x</span>
+            </div>
+            <input type="range" id="tts-speed" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500">
+          </div>
+
+          <!-- Tham số 2: Số bước Diffusion (num_step) -->
+          <div class="bg-black/20 border border-white/5 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between text-[11px] font-medium text-gray-400">
+              <span>Số bước Diffusion</span>
+              <span id="steps-val" class="text-purple-400 font-semibold">16</span>
+            </div>
+            <input type="range" id="tts-steps" min="8" max="64" step="1" value="16" class="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500">
+          </div>
+
+          <!-- Tham số 3: Khoảng lặng nghỉ (silence) -->
+          <div class="bg-black/20 border border-white/5 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between text-[11px] font-medium text-gray-400">
+              <span>Nghỉ giữa câu</span>
+              <span id="silence-val" class="text-purple-400 font-semibold">300ms</span>
+            </div>
+            <input type="range" id="tts-silence" min="100" max="1000" step="50" value="300" class="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500">
+          </div>
+
+        </div>
+
+        <!-- Nút Tạo Giọng Nói -->
+        <button type="button" id="btn-generate" class="w-full btn-primary text-white py-3.5 px-6 rounded-xl font-bold flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+          </svg>
+          <span>Tạo Sách Nói MP3</span>
+        </button>
+
+      </form>
+
+      <!-- Cột phải: Hộp kết quả phát âm thanh và Log tiến độ (5/12 cột) -->
+      <section class="lg:col-span-5 flex flex-col justify-between">
+        
+        <div class="bg-black/30 border border-white/5 rounded-2xl p-6 h-full flex flex-col items-center justify-center text-center space-y-6 min-h-[350px] relative overflow-hidden">
+          
+          <!-- Trạng thái chờ tạo audio -->
+          <div id="result-placeholder" class="space-y-4">
+            <div class="w-16 h-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto text-gray-500 animate-pulse">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+            </div>
+            <p class="text-sm text-gray-400 max-w-[200px] mx-auto font-medium">Sẵn sàng</p>
+            <p class="text-xs text-gray-500 max-w-[220px] mx-auto">Vui lòng chọn tài liệu văn bản, chọn giọng đọc và cấu hình để bắt đầu tạo sách nói.</p>
+          </div>
+
+          <!-- Spinner & Tiến độ thời gian thực khi đang tổng hợp giọng (SSE) -->
+          <div id="result-loading" class="hidden w-full space-y-6">
+            <div class="relative w-20 h-20 mx-auto">
+              <!-- Hiệu ứng vòng xoay kép cao cấp -->
+              <div class="absolute inset-0 rounded-full border-4 border-purple-500/10"></div>
+              <div class="absolute inset-0 rounded-full border-4 border-t-purple-500 border-r-pink-500 animate-spin"></div>
+              <!-- Số % ở giữa vòng xoay -->
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span id="progress-percent" class="text-base font-bold text-white">0%</span>
+              </div>
+            </div>
+            
+            <div class="space-y-2">
+              <p class="text-sm text-purple-400 font-medium animate-pulse">Đang xử lý tài liệu bất đồng bộ...</p>
+              
+              <!-- Thanh tiến trình ProgressBar -->
+              <div class="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5 max-w-[240px] mx-auto">
+                <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <p id="progress-details" class="text-[11px] text-gray-400 mt-1">Đang phân tách câu...</p>
+            </div>
+
+            <!-- Khối log chi tiết (Status Log Console) -->
+            <div class="bg-black/40 border border-white/5 rounded-xl p-3.5 text-left font-mono text-[10px] text-gray-400 h-28 overflow-y-auto space-y-1 w-full" id="log-console">
+              <div class="text-gray-500">> Khởi tạo luồng Event Stream...</div>
+            </div>
+          </div>
+
+          <!-- Giao diện Trình phát nhạc chất lượng cao khi tạo xong -->
+          <div id="result-success" class="hidden w-full space-y-6">
+            
+            <!-- EQ Equalizer động nhấp nháy theo nhạc -->
+            <div class="flex flex-col items-center justify-center space-y-3">
+              <div id="audio-wave" class="wave-container opacity-40">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+              <span class="text-xs text-green-400 font-medium flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>Tạo sách nói hoàn tất!</span>
+              </span>
+            </div>
+
+            <!-- Trình phát Audio HTML5 -->
+            <audio id="audio-player" controls class="w-full"></audio>
+
+            <!-- Khối nút bấm Lưu trữ -->
+            <div class="flex flex-col gap-2 w-full pt-2">
+              <a id="btn-download-audio" href="#" download="sach_noi_omnivoice.mp3" class="w-full btn-primary text-sm text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                <span>Tải tệp MP3 về máy</span>
+              </a>
+            </div>
+
+          </div>
+
+          <!-- Giao diện báo lỗi nghiêm trọng (FATAL_ERROR) -->
+          <div id="result-failed" class="hidden w-full space-y-4">
+            <div class="w-16 h-16 bg-red-950/20 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-400">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+            </div>
+            <p class="text-sm text-red-400 font-bold">LỖI XỬ LÝ SÁCH NÓI</p>
+            <div class="bg-red-950/10 border border-red-500/10 rounded-xl p-3 text-xs text-red-300 text-left overflow-auto max-h-32 leading-relaxed" id="error-msg">
+              Lỗi hệ thống không xác định.
+            </div>
+            <button id="btn-retry" class="w-full btn-secondary text-gray-300 text-xs py-2.5 rounded-xl font-medium">
+              Thử lại tác vụ
+            </button>
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </div>
+
+  <script src="js/long_text.js"></script>
+</body>
+</html>

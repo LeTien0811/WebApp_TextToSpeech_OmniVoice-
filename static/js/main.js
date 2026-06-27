@@ -15,6 +15,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btn-goto-tts").addEventListener("click", () => {
         window.location.href = "generate.html";
     });
+    document.getElementById("btn-goto-long-tts").addEventListener("click", () => {
+        window.location.href = "long_text.html";
+    });
 });
 
 async function checkSystemStatus() {
@@ -59,6 +62,7 @@ async function checkSystemStatus() {
         const btnLoad = document.getElementById("btn-load-model");
         const btnUnload = document.getElementById("btn-unload-model");
         const btnGotoTts = document.getElementById("btn-goto-tts");
+        const btnGotoLongTts = document.getElementById("btn-goto-long-tts");
         const loadBox = document.getElementById("load-box");
         
         if (data.model_loaded) {
@@ -74,6 +78,8 @@ async function checkSystemStatus() {
             // Kích hoạt nút chuyển tiếp sang trang sinh giọng nói
             btnGotoTts.disabled = false;
             btnGotoTts.classList.remove("opacity-50");
+            btnGotoLongTts.disabled = false;
+            btnGotoLongTts.classList.remove("opacity-50");
         } else if (data.model_status === "loading") {
             loadedText.textContent = "Đang nạp...";
             loadedText.className = "text-lg font-medium text-amber-400";
@@ -84,6 +90,7 @@ async function checkSystemStatus() {
             btnLoad.textContent = "Đang nạp...";
             document.getElementById("load-loading-spinner").classList.remove("hidden");
             btnGotoTts.disabled = true;
+            btnGotoLongTts.disabled = true;
         } else {
             loadedText.textContent = "Chưa nạp";
             loadedText.className = "text-lg font-medium text-gray-400";
@@ -98,6 +105,7 @@ async function checkSystemStatus() {
             
             // Tắt nút chuyển tiếp sang trang sinh giọng nói
             btnGotoTts.disabled = true;
+            btnGotoLongTts.disabled = true;
             document.getElementById("load-loading-spinner").classList.add("hidden");
         }
         
