@@ -4,6 +4,7 @@ import time
 import json
 import shutil
 import asyncio
+from datetime import datetime
 import uuid
 import io
 from typing import Optional, List
@@ -271,8 +272,8 @@ async def generate_long_text_init(
             detail="Model chưa được nạp. Hãy nạp model trên bảng điều khiển trước."
         )
 
-    # 3. Tạo task_id duy nhất và lưu cấu hình tạm thời
-    task_id = str(uuid.uuid4())
+    # 3. Tạo task_id kết hợp ngày giờ tạo để người dùng dễ đọc và 4 ký tự ngẫu nhiên tránh trùng lặp
+    task_id = f"sachnoi_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
     config_data = {
         "text": input_text,
         "voice_sample_name": voice_sample_name,
@@ -398,6 +399,8 @@ async def generate_long_text_stream(task_id: str, request: Request):
             else:
                 # Xử lý thành công toàn bộ, không bị ngắt quãng
                 should_cleanup_mp3 = False
+                # Đợi một chút để hệ thống tệp giải phóng I/O và đóng file hoàn toàn
+                await asyncio.sleep(0.8)
                 yield f"data: {json.dumps({'status': 'completed', 'progress': 100.0, 'download_url': f'/static/outputs/{task_id}.mp3'}, ensure_ascii=False)}\n\n"
                 logger.info(f"Task {task_id} hoàn tất thành công. File MP3 đã được xuất.")
                 

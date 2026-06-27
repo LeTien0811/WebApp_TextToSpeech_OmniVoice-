@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const charCount = document.getElementById("char-count");
     ttsText.addEventListener("input", () => {
         charCount.textContent = ttsText.value.length;
+        localStorage.setItem("active_long_tts_text", ttsText.value);
     });
 
     // 3. Lắng nghe sự thay đổi các thanh trượt tham số
@@ -34,16 +35,21 @@ document.addEventListener("DOMContentLoaded", () => {
     setupDragAndDrop();
 
     // 5. Đăng ký sự kiện click cho nút sinh sách nói "Generate MP3"
-    document.getElementById("btn-generate").addEventListener("click", generateLongSpeech);
+    document.getElementById("btn-generate").addEventListener("click", startNewLongSpeech);
 
     // 6. Đăng ký sự kiện click nút thử lại
     document.getElementById("btn-retry").addEventListener("click", () => {
+        // Xóa task bị lỗi để cho phép quay lại màn hình sẵn sàng
+        clearTaskState();
         document.getElementById("result-failed").classList.add("hidden");
         document.getElementById("result-placeholder").classList.remove("hidden");
     });
 
     // 7. Cấu hình hiệu ứng EQ sóng nhạc
     setupEqualizerAnimation();
+
+    // 8. KHÔI PHỤC TIẾN TRÌNH KHI RELOAD TRANG
+    restoreTaskState();
 });
 
 // Biến lưu trữ đối tượng EventSource để dọn dẹp khi cần
@@ -83,24 +89,18 @@ function setupDragAndDrop() {
     const ttsText = document.getElementById("tts-text");
     const charCount = document.getElementById("char-count");
 
-    // Click vào dropzone kích hoạt input file
     dropzone.addEventListener("click", () => fileInput.click());
-
-    // Thay đổi file từ input
     fileInput.addEventListener("change", handleFileSelect);
 
-    // Sự kiện kéo thả dragover
     dropzone.addEventListener("dragover", (e) => {
         e.preventDefault();
         dropzone.classList.add("border-purple-500/80", "bg-white/[0.05]");
     });
 
-    // Sự kiện kéo thả dragleave
     dropzone.addEventListener("dragleave", () => {
         dropzone.classList.remove("border-purple-500/80", "bg-white/[0.05]");
     });
 
-    // Sự kiện drop file
     dropzone.addEventListener("drop", (e) => {
         e.preventDefault();
         dropzone.classList.remove("border-purple-500/80", "bg-white/[0.05]");
@@ -123,17 +123,48 @@ function setupDragAndDrop() {
 
         fileInfo.textContent = `Tệp đã chọn: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
         
-        // Đọc nội dung file
         const reader = new FileReader();
         reader.onload = (e) => {
             ttsText.value = e.target.result;
             charCount.textContent = ttsText.value.length;
+            localStorage.setItem("active_long_tts_text", ttsText.value);
         };
         reader.readAsText(file, "UTF-8");
     }
 }
 
-async function generateLongSpeech() {
+// Ghi log ra màn hình và đồng thời lưu vào localStorage
+function appendLog(message, colorClass = "text-gray-400") {
+    const logConsole = document.getElementById("log-console");
+    if (!logConsole) return;
+
+    const div = document.createElement("div");
+    div.className = colorClass;
+    div.textContent = `> ${message}`;
+    logConsole.appendChild(div);
+    logConsole.scrollTop = logConsole.scrollHeight;
+
+    // Cập nhật logs vào LocalStorage
+    let localLogs = [];
+    try {
+        localLogs = JSON.parse(localStorage.getItem("active_long_tts_logs")) || [];
+    } catch (e) {}
+    localLogs.push({ message, colorClass });
+    localStorage.setItem("active_long_tts_logs", JSON.stringify(localLogs));
+}
+
+function clearTaskState() {
+    localStorage.removeItem("active_long_tts_task_id");
+    localStorage.removeItem("active_long_tts_status");
+    localStorage.removeItem("active_long_tts_download_url");
+    localStorage.removeItem("active_long_tts_error");
+    localStorage.removeItem("active_long_tts_progress");
+    localStorage.removeItem("active_long_tts_completed_chunks");
+    localStorage.removeItem("active_long_tts_total_chunks");
+    localStorage.setItem("active_long_tts_logs", JSON.stringify([]));
+}
+
+async function startNewLongSpeech() {
     const text = document.getElementById("tts-text").value.trim();
     const voice = document.getElementById("voice-select").value;
     const speed = parseFloat(document.getElementById("tts-speed").value);
@@ -149,7 +180,6 @@ async function generateLongSpeech() {
         return;
     }
 
-    // Các thành phần UI điều khiển hiển thị
     const btnGen = document.getElementById("btn-generate");
     const placeholder = document.getElementById("result-placeholder");
     const loading = document.getElementById("result-loading");
@@ -160,36 +190,26 @@ async function generateLongSpeech() {
     const progressPercent = document.getElementById("progress-percent");
     const progressDetails = document.getElementById("progress-details");
 
-    // Khởi tạo trạng thái giao diện
+    // Dọn dẹp trạng thái cũ
+    clearTaskState();
+
+    // Khởi tạo giao diện bắt đầu mới
     btnGen.disabled = true;
     placeholder.classList.add("hidden");
     success.classList.add("hidden");
     failed.classList.add("hidden");
     loading.classList.remove("hidden");
     
-    // Đặt lại progress bar & logs
     progressBarFill.style.width = "0%";
     progressPercent.textContent = "0%";
     progressDetails.textContent = "Đang kết nối hệ thống...";
-    logConsole.innerHTML = '<div class="text-gray-500">> Khởi tạo tác vụ...</div>';
+    logConsole.innerHTML = "";
 
-    // Đóng EventSource cũ nếu có
-    if (activeEventSource) {
-        activeEventSource.close();
-        activeEventSource = null;
-    }
-
-    function appendLog(message, colorClass = "text-gray-400") {
-        const div = document.createElement("div");
-        div.className = colorClass;
-        div.textContent = `> ${message}`;
-        logConsole.appendChild(div);
-        logConsole.scrollTop = logConsole.scrollHeight;
-    }
+    // Lưu văn bản hiện tại
+    localStorage.setItem("active_long_tts_text", text);
+    appendLog("Đang khởi tạo tác vụ và tải dữ liệu lên máy chủ...");
 
     try {
-        // Bước 1: Gửi POST Init để lấy Task ID
-        appendLog("Đang gửi văn bản lên máy chủ...");
         const formData = new FormData();
         formData.append("text", text);
         formData.append("voice_sample_name", voice);
@@ -213,86 +233,238 @@ async function generateLongSpeech() {
 
         const initData = await initResponse.json();
         const taskId = initData.task_id;
-        appendLog(`Khởi tạo thành công! ID tác vụ: ${taskId.substring(0, 8)}...`);
-
-        // Bước 2: Thiết lập kết nối EventSource (SSE) với Task ID
-        appendLog("Đang mở kết nối stream sự kiện SSE...");
-        activeEventSource = new EventSource(`/api/generate-long-text/stream/${taskId}`);
-
-        activeEventSource.onopen = () => {
-            appendLog("Kết nối stream SSE thành công. Đang phân tách văn bản...");
-        };
-
-        activeEventSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-
-            if (data.status === "processing") {
-                const progress = data.progress;
-                progressBarFill.style.width = `${progress}%`;
-                progressPercent.textContent = `${progress}%`;
-                progressDetails.textContent = `Đang xử lý câu ${data.completed_chunks}/${data.total_chunks}...`;
-                appendLog(`Đang xử lý câu ${data.completed_chunks}/${data.total_chunks}... (${progress}%)`);
-            } 
-            else if (data.status === "completed") {
-                appendLog("Hệ thống hoàn thành tổng hợp toàn bộ văn bản!", "text-green-400");
-                activeEventSource.close();
-                activeEventSource = null;
-
-                // Chuẩn bị URL tải xuống
-                const downloadUrl = data.download_url;
-                const player = document.getElementById("audio-player");
-                player.src = downloadUrl;
-
-                const downloadBtn = document.getElementById("btn-download-audio");
-                downloadBtn.href = downloadUrl;
-                const timestamp = new Date().toISOString().replace(/[-:.]/g, "");
-                downloadBtn.download = `sach_noi_omnivoice_${timestamp}.mp3`;
-
-                // Hiển thị giao diện thành công
-                loading.classList.add("hidden");
-                success.classList.remove("hidden");
-                btnGen.disabled = false;
-                
-                player.play().catch(e => console.log("Không thể tự phát âm thanh:", e));
-            }
-            else if (data.status === "failed") {
-                // Nhận thông điệp lỗi FATAL_ERROR từ server
-                const errMsg = data.error || "Gặp lỗi xử lý không mong muốn.";
-                appendLog(`LỖI HỆ THỐNG: ${errMsg}`, "text-red-400");
-                
-                activeEventSource.close();
-                activeEventSource = null;
-
-                document.getElementById("error-msg").textContent = errMsg;
-                loading.classList.add("hidden");
-                failed.classList.remove("hidden");
-                btnGen.disabled = false;
-            }
-        };
-
-        activeEventSource.onerror = (err) => {
-            console.error("SSE stream error:", err);
-            appendLog("Lỗi kết nối stream SSE. Kiểm tra log server hoặc kết nối mạng.", "text-red-400");
-            
-            if (activeEventSource) {
-                activeEventSource.close();
-                activeEventSource = null;
-            }
-
-            document.getElementById("error-msg").textContent = "Mất kết nối EventSource (SSE) với máy chủ hoặc tác vụ bị ngắt quãng.";
-            loading.classList.add("hidden");
-            failed.classList.remove("hidden");
-            btnGen.disabled = false;
-        };
+        
+        appendLog(`Khởi tạo thành công! ID tác vụ: ${taskId}`);
+        
+        // Mở kết nối stream SSE
+        connectSSE(taskId);
 
     } catch (error) {
-        console.error("Lỗi tác vụ sách nói:", error);
+        console.error("Lỗi khởi tạo tác vụ sách nói:", error);
         appendLog(`Lỗi khởi tạo: ${error.message}`, "text-red-400");
         
         document.getElementById("error-msg").textContent = error.message;
         loading.classList.add("hidden");
         failed.classList.remove("hidden");
         btnGen.disabled = false;
+
+        localStorage.setItem("active_long_tts_status", "failed");
+        localStorage.setItem("active_long_tts_error", error.message);
+    }
+}
+
+function connectSSE(taskId) {
+    const btnGen = document.getElementById("btn-generate");
+    const loading = document.getElementById("result-loading");
+    const success = document.getElementById("result-success");
+    const failed = document.getElementById("result-failed");
+    const placeholder = document.getElementById("result-placeholder");
+    const progressBarFill = document.getElementById("progress-bar-fill");
+    const progressPercent = document.getElementById("progress-percent");
+    const progressDetails = document.getElementById("progress-details");
+
+    btnGen.disabled = true;
+    placeholder.classList.add("hidden");
+    success.classList.add("hidden");
+    failed.classList.add("hidden");
+    loading.classList.remove("hidden");
+
+    if (activeEventSource) {
+        activeEventSource.close();
+        activeEventSource = null;
+    }
+
+    localStorage.setItem("active_long_tts_task_id", taskId);
+    localStorage.setItem("active_long_tts_status", "processing");
+
+    // Lắng nghe luồng SSE
+    activeEventSource = new EventSource(`/api/generate-long-text/stream/${taskId}`);
+
+    activeEventSource.onopen = () => {
+        let savedLogs = [];
+        try {
+            savedLogs = JSON.parse(localStorage.getItem("active_long_tts_logs")) || [];
+        } catch (e) {}
+        // Tránh in lặp lại log kết nối nếu đã có lịch sử log trước đó khi reload
+        if (savedLogs.length <= 2) {
+            appendLog("Kết nối stream SSE thành công. Đang phân tách văn bản...");
+        } else {
+            appendLog("Tự động kết nối lại luồng stream SSE để tiếp tục theo dõi...");
+        }
+    };
+
+    activeEventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.status === "processing") {
+            const progress = data.progress;
+            progressBarFill.style.width = `${progress}%`;
+            progressPercent.textContent = `${progress}%`;
+            progressDetails.textContent = `Đang xử lý câu ${data.completed_chunks}/${data.total_chunks}...`;
+            
+            appendLog(`Đang xử lý câu ${data.completed_chunks}/${data.total_chunks}... (${progress}%)`);
+
+            localStorage.setItem("active_long_tts_status", "processing");
+            localStorage.setItem("active_long_tts_progress", progress);
+            localStorage.setItem("active_long_tts_completed_chunks", data.completed_chunks);
+            localStorage.setItem("active_long_tts_total_chunks", data.total_chunks);
+        } 
+        else if (data.status === "completed") {
+            appendLog("Hệ thống hoàn thành tổng hợp toàn bộ văn bản!", "text-green-400");
+            
+            // Đóng stream
+            activeEventSource.close();
+            activeEventSource = null;
+
+            const downloadUrl = data.download_url;
+            const player = document.getElementById("audio-player");
+            player.src = downloadUrl;
+
+            // Xử lý tên tệp tin theo ngày giờ lấy từ task_id (sachnoi_YYYYMMDD_HHMMSS_xxxx)
+            const downloadBtn = document.getElementById("btn-download-audio");
+            downloadBtn.href = downloadUrl;
+            
+            let filename = `sach_noi_omnivoice.mp3`;
+            if (taskId.startsWith("sachnoi_")) {
+                const parts = taskId.split("_");
+                if (parts.length >= 3) {
+                    filename = `sach_noi_${parts[1]}_${parts[2]}.mp3`;
+                }
+            }
+            downloadBtn.download = filename;
+
+            // Hiển thị giao diện thành công
+            loading.classList.add("hidden");
+            success.classList.remove("hidden");
+            btnGen.disabled = false;
+
+            // Lưu trạng thái thành công
+            localStorage.setItem("active_long_tts_status", "completed");
+            localStorage.setItem("active_long_tts_download_url", downloadUrl);
+            
+            player.play().catch(e => console.log("Không thể tự phát âm thanh:", e));
+        }
+        else if (data.status === "failed") {
+            const errMsg = data.error || "Gặp lỗi xử lý không mong muốn.";
+            appendLog(`LỖI HỆ THỐNG: ${errMsg}`, "text-red-400");
+            
+            activeEventSource.close();
+            activeEventSource = null;
+
+            document.getElementById("error-msg").textContent = errMsg;
+            loading.classList.add("hidden");
+            failed.classList.remove("hidden");
+            btnGen.disabled = false;
+
+            localStorage.setItem("active_long_tts_status", "failed");
+            localStorage.setItem("active_long_tts_error", errMsg);
+        }
+    };
+
+    activeEventSource.onerror = (err) => {
+        console.error("SSE stream error:", err);
+        
+        // Đóng kết nối
+        if (activeEventSource) {
+            activeEventSource.close();
+            activeEventSource = null;
+        }
+
+        const savedStatus = localStorage.getItem("active_long_tts_status");
+        // Nếu đã hoàn thành từ trước, bỏ qua lỗi đóng kết nối tự nhiên của SSE
+        if (savedStatus === "completed") {
+            return;
+        }
+
+        appendLog("Lỗi kết nối stream SSE hoặc tác vụ bị ngắt kết nối.", "text-red-400");
+        document.getElementById("error-msg").textContent = "Mất kết nối EventSource (SSE) với máy chủ hoặc tác vụ bị ngắt quãng.";
+        loading.classList.add("hidden");
+        failed.classList.remove("hidden");
+        btnGen.disabled = false;
+
+        localStorage.setItem("active_long_tts_status", "failed");
+        localStorage.setItem("active_long_tts_error", "Mất kết nối với luồng SSE của máy chủ.");
+    };
+}
+
+function restoreTaskState() {
+    const ttsText = document.getElementById("tts-text");
+    const charCount = document.getElementById("char-count");
+    
+    // 1. Khôi phục text dán trong textarea
+    const savedText = localStorage.getItem("active_long_tts_text");
+    if (savedText) {
+        ttsText.value = savedText;
+        charCount.textContent = savedText.length;
+    }
+
+    // 2. Khôi phục tác vụ đang chạy hoặc đã kết thúc
+    const savedTaskId = localStorage.getItem("active_long_tts_task_id");
+    const savedStatus = localStorage.getItem("active_long_tts_status");
+
+    if (savedTaskId && savedStatus) {
+        const placeholder = document.getElementById("result-placeholder");
+        const loading = document.getElementById("result-loading");
+        const success = document.getElementById("result-success");
+        const failed = document.getElementById("result-failed");
+        const logConsole = document.getElementById("log-console");
+
+        // A. Khôi phục lịch sử logs console
+        let savedLogs = [];
+        try {
+            savedLogs = JSON.parse(localStorage.getItem("active_long_tts_logs")) || [];
+        } catch (e) {}
+
+        logConsole.innerHTML = "";
+        savedLogs.forEach(log => {
+            const div = document.createElement("div");
+            div.className = log.colorClass;
+            div.textContent = `> ${log.message}`;
+            logConsole.appendChild(div);
+        });
+        logConsole.scrollTop = logConsole.scrollHeight;
+
+        // B. Khôi phục UI theo trạng thái tương ứng
+        if (savedStatus === "processing" || savedStatus === "initialized") {
+            const progress = localStorage.getItem("active_long_tts_progress") || "0";
+            const completed = localStorage.getItem("active_long_tts_completed_chunks") || "0";
+            const total = localStorage.getItem("active_long_tts_total_chunks") || "0";
+
+            document.getElementById("progress-bar-fill").style.width = `${progress}%`;
+            document.getElementById("progress-percent").textContent = `${progress}%`;
+            document.getElementById("progress-details").textContent = `Đang xử lý câu ${completed}/${total}...`;
+
+            // Tự động kết nối lại SSE để tiếp tục lắng nghe tiến độ
+            connectSSE(savedTaskId);
+        } 
+        else if (savedStatus === "completed") {
+            const downloadUrl = localStorage.getItem("active_long_tts_download_url");
+            if (downloadUrl) {
+                placeholder.classList.add("hidden");
+                success.classList.remove("hidden");
+
+                const player = document.getElementById("audio-player");
+                player.src = downloadUrl;
+
+                const downloadBtn = document.getElementById("btn-download-audio");
+                downloadBtn.href = downloadUrl;
+                
+                let filename = `sach_noi_omnivoice.mp3`;
+                if (savedTaskId.startsWith("sachnoi_")) {
+                    const parts = savedTaskId.split("_");
+                    if (parts.length >= 3) {
+                        filename = `sach_noi_${parts[1]}_${parts[2]}.mp3`;
+                    }
+                }
+                downloadBtn.download = filename;
+            }
+        } 
+        else if (savedStatus === "failed") {
+            const error = localStorage.getItem("active_long_tts_error") || "Gặp lỗi xử lý không mong muốn.";
+            placeholder.classList.add("hidden");
+            failed.classList.remove("hidden");
+            document.getElementById("error-msg").textContent = error;
+        }
     }
 }
 
