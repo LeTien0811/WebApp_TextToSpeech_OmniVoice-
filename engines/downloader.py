@@ -10,7 +10,7 @@ from core.logger import logger
 # Danh sách toàn bộ các file của repo k2-fsa/OmniVoice cần tải để model chạy offline tự quản lý hoàn toàn
 FILES_TO_DOWNLOAD = [
     (".gitattributes", 1570),
-    ("README.md", 9270),
+    ("README.md", 9424),
     ("audio_tokenizer/.gitattributes", 1519),
     ("audio_tokenizer/LICENSE", 9171),
     ("audio_tokenizer/README.md", 5174),

@@ -27,12 +27,12 @@ File âm thanh mẫu kết quả chạy dự án: [example_result.wav](./example
 
 ## Yêu cầu phần cứng
 
-| Thành phần | Tối thiểu | Khuyến nghị |
-|---|---|---|
-| GPU VRAM | 6GB | 8GB+ |
-| CUDA | 12.x | 12.8 |
-| RAM | 8GB | 16GB |
-| Disk | 10GB | 20GB (model ~8GB) |
+| Thành phần | Tối thiểu | Khuyến nghị     |
+| ------------ | ----------- | ----------------- |
+| GPU VRAM     | 6GB         | 8GB+              |
+| CUDA         | 12.x        | 12.8              |
+| RAM          | 8GB         | 16GB              |
+| Disk         | 10GB        | 20GB (model ~8GB) |
 
 Chạy được trên CPU nhưng rất chậm (~30-60s/câu).
 
@@ -51,16 +51,19 @@ python -m venv venv
 Kiểm tra CUDA version của bạn bằng `nvidia-smi`, rồi chọn lệnh phù hợp:
 
 **CUDA 12.8:**
+
 ```bash
 venv\Scripts\pip.exe install torch==2.7.1+cu128 torchaudio==2.7.1+cu128 --index-url https://download.pytorch.org/whl/cu128
 ```
 
 **CUDA 12.4:**
+
 ```bash
 venv\Scripts\pip.exe install torch==2.7.1+cu124 torchaudio==2.7.1+cu124 --index-url https://download.pytorch.org/whl/cu124
 ```
 
 **CPU only (chậm):**
+
 ```bash
 venv\Scripts\pip.exe install torch torchaudio
 ```
@@ -76,6 +79,7 @@ venv\Scripts\pip.exe install -r requirements.txt
 Đặt file WAV giọng mẫu vào thư mục gốc, đặt tên `voice_sample.wav`.
 
 Yêu cầu file audio:
+
 - Định dạng: WAV (PCM)
 - Sample rate: 16kHz hoặc 24kHz (tự động resample)
 - Kênh: mono (stereo sẽ tự average)
@@ -123,6 +127,7 @@ Sau khi thấy `model ready for requests` thì service mới nhận request.
 Kiểm tra trạng thái service và model.
 
 **Response:**
+
 ```json
 {
   "status": "ready",
@@ -135,14 +140,14 @@ Kiểm tra trạng thái service và model.
 }
 ```
 
-| Field | Mô tả |
-|---|---|
-| `status` | `"ready"` / `"loading"` / `"error"` |
-| `device` | `"cuda:0"` hoặc `"cpu"` |
-| `cuda` | GPU có sẵn không |
-| `error` | Thông báo lỗi nếu model load thất bại |
+| Field                  | Mô tả                                      |
+| ---------------------- | -------------------------------------------- |
+| `status`             | `"ready"` / `"loading"` / `"error"`    |
+| `device`             | `"cuda:0"` hoặc `"cpu"`                 |
+| `cuda`               | GPU có sẵn không                          |
+| `error`              | Thông báo lỗi nếu model load thất bại  |
 | `voice_prompt_ready` | VoiceClonePrompt đã pre-compute xong chưa |
-| `auth_required` | API key có được yêu cầu không |
+| `auth_required`      | API key có được yêu cầu không         |
 
 ---
 
@@ -151,12 +156,15 @@ Kiểm tra trạng thái service và model.
 Tổng hợp giọng nói từ text.
 
 **Header:**
+
 ```
 X-TTS-API-Key: your-secret-key
 ```
+
 *(Bỏ qua nếu `TTS_API_KEY` không được set)*
 
 **Request body:**
+
 ```json
 {
   "text": "Xin chào anh chị, tôi có thể giúp gì cho bạn?",
@@ -165,19 +173,21 @@ X-TTS-API-Key: your-secret-key
 }
 ```
 
-| Tham số | Kiểu | Mặc định | Mô tả |
-|---|---|---|---|
-| `text` | string | bắt buộc | Text cần đọc, tối đa 500 ký tự |
-| `num_step` | int | `32` | Số bước diffusion. Cao hơn = chất lượng tốt hơn, chậm hơn. Dùng `16` để tăng tốc |
-| `speed` | float | `1.0` | Tốc độ đọc. `0.85` = chậm, `1.0` = bình thường, `1.1` = nhanh |
+| Tham số     | Kiểu  | Mặc định | Mô tả                                                                                           |
+| ------------ | ------ | ----------- | ------------------------------------------------------------------------------------------------- |
+| `text`     | string | bắt buộc  | Text cần đọc, tối đa 500 ký tự                                                             |
+| `num_step` | int    | `32`      | Số bước diffusion. Cao hơn = chất lượng tốt hơn, chậm hơn. Dùng`16` để tăng tốc |
+| `speed`    | float  | `1.0`     | Tốc độ đọc.`0.85` = chậm, `1.0` = bình thường, `1.1` = nhanh                       |
 
 **Response:**
+
 - Content-Type: `audio/wav`
 - Body: WAV bytes (PCM 24kHz mono)
 - Header `X-Synthesis-Time`: thời gian xử lý (giây)
 - Header `X-Text-Length`: độ dài text đầu vào
 
 **Ví dụ với curl:**
+
 ```bash
 curl -X POST http://localhost:8100/synthesize \
   -H "Content-Type: application/json" \
@@ -187,6 +197,7 @@ curl -X POST http://localhost:8100/synthesize \
 ```
 
 **Ví dụ với Python:**
+
 ```python
 import httpx
 
@@ -201,6 +212,7 @@ with open("output.wav", "wb") as f:
 ```
 
 **Ví dụ với JavaScript/fetch:**
+
 ```javascript
 const resp = await fetch("http://localhost:8100/synthesize", {
   method: "POST",
@@ -226,12 +238,12 @@ source.start();
 
 Các tham số cố định trong `_synthesize_sync()` ảnh hưởng đến chất lượng âm thanh:
 
-| Tham số | Giá trị | Mô tả |
-|---|---|---|
-| `guidance_scale` | `2.5` | Độ bám sát text. Tăng → rõ hơn nhưng cứng hơn. Giảm → tự nhiên hơn nhưng có thể sai từ |
-| `class_temperature` | `0.3` | Độ ngẫu nhiên. `0` = greedy (đơn điệu), `1.0` = rất ngẫu nhiên |
-| `postprocess_output` | `True` | Bật remove_silence + fade_and_pad. Tắt nếu muốn audio thô |
-| `language` | `"vi"` | Ngôn ngữ. Đổi thành `"en"` cho tiếng Anh |
+| Tham số               | Giá trị | Mô tả                                                                                                    |
+| ---------------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
+| `guidance_scale`     | `2.5`   | Độ bám sát text. Tăng → rõ hơn nhưng cứng hơn. Giảm → tự nhiên hơn nhưng có thể sai từ |
+| `class_temperature`  | `0.3`   | Độ ngẫu nhiên.`0` = greedy (đơn điệu), `1.0` = rất ngẫu nhiên                               |
+| `postprocess_output` | `True`  | Bật remove_silence + fade_and_pad. Tắt nếu muốn audio thô                                             |
+| `language`           | `"vi"`  | Ngôn ngữ. Đổi thành`"en"` cho tiếng Anh                                                            |
 
 ---
 
@@ -245,13 +257,13 @@ Lưu ý: VoiceClonePrompt được pre-compute khi startup — mỗi lần đổ
 
 ## HTTP Status Codes
 
-| Code | Mô tả |
-|---|---|
-| `200` | Thành công, trả về WAV bytes |
-| `400` | Text rỗng hoặc không hợp lệ |
-| `401` | API key sai hoặc thiếu |
-| `500` | Lỗi model (xem field `error` trong `/health`) |
-| `503` | Model đang load hoặc chưa sẵn sàng |
+| Code    | Mô tả                                           |
+| ------- | ------------------------------------------------- |
+| `200` | Thành công, trả về WAV bytes                  |
+| `400` | Text rỗng hoặc không hợp lệ                  |
+| `401` | API key sai hoặc thiếu                          |
+| `500` | Lỗi model (xem field`error` trong `/health`) |
+| `503` | Model đang load hoặc chưa sẵn sàng           |
 
 ---
 
@@ -260,9 +272,9 @@ Lưu ý: VoiceClonePrompt được pre-compute khi startup — mỗi lần đổ
 Benchmark trên RTX 4060 8GB (CUDA 12.8, float16):
 
 | num_step | Câu ngắn (~10 từ) | Câu dài (~30 từ) |
-|---|---|---|
-| 16 | ~0.8s | ~1.5s |
-| 32 | ~1.5s | ~2.8s |
+| -------- | -------------------- | ------------------- |
+| 16       | ~0.8s                | ~1.5s               |
+| 32       | ~1.5s                | ~2.8s               |
 
 RTF (Real-Time Factor) ~0.1-0.3 — nhanh hơn realtime 3-10x.
 
@@ -273,6 +285,7 @@ RTF (Real-Time Factor) ~0.1-0.3 — nhanh hơn realtime 3-10x.
 Service trả về WAV bytes thuần — tích hợp được với bất kỳ ngôn ngữ/framework nào hỗ trợ HTTP.
 
 Proxy qua FastAPI backend:
+
 ```python
 import httpx
 

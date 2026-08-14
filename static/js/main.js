@@ -7,17 +7,29 @@ let downloadEventSource = null;
 document.addEventListener("DOMContentLoaded", () => {
     // Gọi hàm kiểm tra trạng thái ban đầu của hệ thống
     checkSystemStatus();
+    // Đăng ký sự kiện click cho các nút bấm trên giao diện (với kiểm tra tồn tại để tránh lỗi runtime)
+    try {
+        const btnDownload = document.getElementById("btn-download");
+        if (btnDownload) btnDownload.addEventListener("click", startSSEDownload);
 
-    // Đăng ký sự kiện click cho các nút bấm trên giao diện
-    document.getElementById("btn-download").addEventListener("click", startSSEDownload);
-    document.getElementById("btn-load-model").addEventListener("click", loadModelToVRAM);
-    document.getElementById("btn-unload-model").addEventListener("click", unloadModelFromVRAM);
-    document.getElementById("btn-goto-tts").addEventListener("click", () => {
-        window.location.href = "generate.html";
-    });
-    document.getElementById("btn-goto-long-tts").addEventListener("click", () => {
-        window.location.href = "long_text.html";
-    });
+        const btnLoad = document.getElementById("btn-load-model");
+        if (btnLoad) btnLoad.addEventListener("click", loadModelToVRAM);
+
+        const btnUnload = document.getElementById("btn-unload-model");
+        if (btnUnload) btnUnload.addEventListener("click", unloadModelFromVRAM);
+
+        const btnGotoTts = document.getElementById("btn-goto-tts");
+        if (btnGotoTts) btnGotoTts.addEventListener("click", () => {
+            window.location.href = "generate.html";
+        });
+
+        const btnGotoLongTts = document.getElementById("btn-goto-long-tts");
+        if (btnGotoLongTts) btnGotoLongTts.addEventListener("click", () => {
+            window.location.href = "long_text.html";
+        });
+    } catch (err) {
+        console.error("Error attaching UI event listeners:", err);
+    }
 });
 
 async function checkSystemStatus() {
@@ -31,6 +43,8 @@ async function checkSystemStatus() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        // Debug: log toàn bộ payload trả về từ backend để kiểm tra field
+        console.log('[Dashboard] /api/status ->', data);
 
         // 1. Cập nhật giao diện trạng thái tệp tin model trên ổ đĩa
         const existsText = document.getElementById("model-exists-text");
@@ -44,7 +58,12 @@ async function checkSystemStatus() {
             existsDesc.textContent = "Sẵn sàng để nạp (3.27 GB)";
 
             // Ẩn hộp thoại bắt đầu tải vì đã có sẵn
-            document.getElementById("download-box").classList.add("hidden");
+            const downloadBox = document.getElementById("download-box");
+            if (downloadBox) {
+                downloadBox.classList.add("hidden");
+                downloadBox.style.display = "none";
+                console.log('[Dashboard] download-box hidden (models_exist=true)');
+            }
         } else {
             existsText.textContent = "Chưa đầy đủ";
             existsText.className = "text-lg font-medium text-rose-400";
@@ -52,7 +71,12 @@ async function checkSystemStatus() {
             existsDesc.textContent = "Cần tải file trọng số";
 
             // Hiển thị hộp thoại yêu cầu tải model
-            document.getElementById("download-box").classList.remove("hidden");
+            const downloadBox = document.getElementById("download-box");
+            if (downloadBox) {
+                downloadBox.classList.remove("hidden");
+                downloadBox.style.display = "block";
+                console.log('[Dashboard] download-box shown (models_exist=false)');
+            }
         }
 
         // 2. Cập nhật giao diện trạng thái nạp model lên RAM/VRAM
@@ -65,6 +89,15 @@ async function checkSystemStatus() {
         const btnGotoLongTts = document.getElementById("btn-goto-long-tts");
         const loadBox = document.getElementById("load-box");
 
+        // Debug: log existence of important DOM elements
+        console.log('[Dashboard] Elements:', {
+            btnLoad: !!btnLoad,
+            btnUnload: !!btnUnload,
+            loadBox: !!loadBox,
+            btnGotoTts: !!btnGotoTts,
+            btnGotoLongTts: !!btnGotoLongTts
+        });
+
         if (data.model_loaded) {
             loadedText.textContent = "Đang chạy";
             loadedText.className = "text-lg font-medium text-emerald-400";
@@ -72,8 +105,8 @@ async function checkSystemStatus() {
             loadedDesc.textContent = `Thiết bị: ${data.device.toUpperCase()}`;
 
             // Điều chỉnh nút bấm: ẩn Nạp, hiện Giải phóng
-            btnLoad.classList.add("hidden");
-            btnUnload.classList.remove("hidden");
+            if (btnLoad) btnLoad.classList.add("hidden");
+            if (btnUnload) btnUnload.classList.remove("hidden");
 
             // Kích hoạt nút chuyển tiếp sang trang sinh giọng nói
             btnGotoTts.disabled = false;
@@ -89,8 +122,10 @@ async function checkSystemStatus() {
             loadedDot.className = "status-dot dot-warning";
             loadedDesc.textContent = "Đang đưa trọng số lên GPU";
 
-            btnLoad.disabled = true;
-            btnLoad.textContent = "Đang nạp...";
+            if (btnLoad) {
+                btnLoad.disabled = true;
+                btnLoad.textContent = "Đang nạp...";
+            }
             document.getElementById("load-loading-spinner").classList.remove("hidden");
             btnGotoTts.disabled = true;
             btnGotoLongTts.disabled = true;
@@ -101,10 +136,12 @@ async function checkSystemStatus() {
             loadedDesc.textContent = "Chưa sử dụng VRAM";
 
             // Điều chỉnh nút bấm: hiện Nạp, ẩn Giải phóng
-            btnLoad.classList.remove("hidden");
-            btnLoad.disabled = !data.models_exist; // Chỉ cho phép nạp nếu model đã tồn tại
-            btnLoad.textContent = "Nạp Model vào RAM/VRAM";
-            btnUnload.classList.add("hidden");
+            if (btnLoad) {
+                btnLoad.classList.remove("hidden");
+                btnLoad.disabled = !data.models_exist; // Chỉ cho phép nạp nếu model đã tồn tại
+                btnLoad.textContent = "Nạp Model vào RAM/VRAM";
+            }
+            if (btnUnload) btnUnload.classList.add("hidden");
 
             // Tắt nút chuyển tiếp sang trang sinh giọng nói
             btnGotoTts.disabled = true;
@@ -112,11 +149,24 @@ async function checkSystemStatus() {
             document.getElementById("load-loading-spinner").classList.add("hidden");
         }
 
-        // Chỉ hiển thị hộp quản lý bộ nhớ nếu model đã tồn tại đầy đủ trên ổ đĩa
-        if (data.models_exist) {
+        // Luôn hiển thị hộp quản lý bộ nhớ, nhưng khóa nút Nạp nếu model chưa có
+        if (loadBox) {
             loadBox.classList.remove("hidden");
-        } else {
-            loadBox.classList.add("hidden");
+            loadBox.style.display = "block";
+            if (!data.models_exist) {
+                // Nếu model chưa có, vô hiệu hóa nút Nạp và thêm tooltip chỉ dẫn
+                if (btnLoad) {
+                    btnLoad.disabled = true;
+                    btnLoad.title = "Vui lòng tải model trước (Tải Model)";
+                }
+                console.log('[Dashboard] load-box shown but load disabled (models missing)');
+            } else {
+                if (btnLoad) {
+                    // Bảo đảm trạng thái nút tương thích với model_exist
+                    btnLoad.disabled = false;
+                    btnLoad.title = "Nạp Model vào RAM/VRAM";
+                }
+            }
         }
 
     } catch (error) {
@@ -132,8 +182,14 @@ function startSSEDownload() {
      */
 
     // Ẩn nút bấm Download cũ để tránh người dùng nhấn lại
-    document.getElementById("btn-download").disabled = true;
-    document.getElementById("download-box").classList.add("hidden");
+    const btnDownload = document.getElementById("btn-download");
+    if (btnDownload) btnDownload.disabled = true;
+    const downloadBoxEl = document.getElementById("download-box");
+    if (downloadBoxEl) {
+        downloadBoxEl.classList.add("hidden");
+        downloadBoxEl.style.display = "none";
+        console.log('[Dashboard] download-box hidden (start download)');
+    }
 
     // Hiển thị hộp tiến độ tải xuống
     const progressBox = document.getElementById("progress-box");
@@ -181,6 +237,13 @@ function startSSEDownload() {
             document.getElementById("download-eta").textContent = "0s";
 
             // Quét lại trạng thái hệ thống để kích hoạt bộ điều khiển nạp
+            // Ẩn ngay download-box để tránh trạng thái UI lag trước khi backend cập nhật
+            const downloadBoxHide = document.getElementById("download-box");
+            if (downloadBoxHide) {
+                downloadBoxHide.classList.add("hidden");
+                downloadBoxHide.style.display = "none";
+                console.log('[Dashboard] download-box hidden (SSE completed)');
+            }
             setTimeout(() => {
                 progressBox.classList.add("hidden");
                 checkSystemStatus();
@@ -193,8 +256,14 @@ function startSSEDownload() {
             document.getElementById("download-file-name").textContent = "Tải xuống thất bại.";
 
             // Khôi phục lại nút tải để người dùng có thể nhấn thử lại (resume)
-            document.getElementById("btn-download").disabled = false;
-            document.getElementById("download-box").classList.remove("hidden");
+            const btnDl = document.getElementById("btn-download");
+            if (btnDl) btnDl.disabled = false;
+            const downloadBoxShow = document.getElementById("download-box");
+            if (downloadBoxShow) {
+                downloadBoxShow.classList.remove("hidden");
+                downloadBoxShow.style.display = "block";
+                console.log('[Dashboard] download-box shown (download failed)');
+            }
         }
     };
 
@@ -206,8 +275,14 @@ function startSSEDownload() {
         errorBox.classList.remove("hidden");
         document.getElementById("download-error-msg").textContent = "Mất kết nối với máy chủ.";
 
-        document.getElementById("btn-download").disabled = false;
-        document.getElementById("download-box").classList.remove("hidden");
+        const btnDlErr = document.getElementById("btn-download");
+        if (btnDlErr) btnDlErr.disabled = false;
+        const downloadBoxErr = document.getElementById("download-box");
+        if (downloadBoxErr) {
+            downloadBoxErr.classList.remove("hidden");
+            downloadBoxErr.style.display = "block";
+            console.log('[Dashboard] download-box shown (EventSource error)');
+        }
     };
 }
 
